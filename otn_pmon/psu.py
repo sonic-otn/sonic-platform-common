@@ -1,23 +1,8 @@
-##
-#   Copyright (c) 2021 Alibaba Group and Accelink Technologies
-#
-#   Licensed under the Apache License, Version 2.0 (the "License"); you may
-#   not use this file except in compliance with the License. You may obtain
-#   a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
-#   THIS CODE IS PROVIDED ON AN *AS IS* BASIS, WITHOUT WARRANTIES OR
-#   CONDITIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED, INCLUDING WITHOUT
-#   LIMITATION ANY IMPLIED WARRANTIES OR CONDITIONS OF TITLE, FITNESS
-#   FOR A PARTICULAR PURPOSE, MERCHANTABILITY OR NON-INFRINGEMENT.
-#
-#   See the Apache Version 2.0 License for specific language governing
-#   permissions and limitations under the License.
-##
-
 import otn_pmon.utils as utils
-from otn_pmon.base import Alarm, slot_status
+import otn_pmon.base as base
 import otn_pmon.periph as periph
 from functools import lru_cache
-from otn_pmon.device.ttypes import led_color, periph_type
+from otn_pmon.device.ttypes import led_color, slot_status, periph_type
 from otn_pmon.thrift_client import thrift_try
 from swsscommon import swsscommon
 
@@ -38,7 +23,8 @@ class Psu(periph.Periph):
         return False
 
     def initialize_state(self):
-        Alarm.clearAll(self.name)
+        base.Alarm.clearAll(self.name)
+        # 是否需要添加风扇非auto的speed-rate设置 ？？？
         eeprom = self.get_periph_eeprom()
         psu_info = self.__get_psu_info()
 
@@ -79,9 +65,9 @@ class Psu(periph.Periph):
         pass
 
     def update_alarm(self):
-        psu_unknown = Alarm(self.name, "CRD_UNKNOWN")
-        # psu_fail = Alarm(self.name, "PSU_FAIL")
-        psu_mismatch = Alarm(self.name, "PSU_MISMATCH")
+        psu_unknown = base.Alarm(self.name, "CRD_UNKNOWN")
+        # psu_fail = base.Alarm(self.name, "PSU_FAIL")
+        psu_mismatch = base.Alarm(self.name, "PSU_MISMATCH")
 
         state_db = self.dbs[swsscommon.STATE_DB]
         eeprom = self.get_periph_eeprom()

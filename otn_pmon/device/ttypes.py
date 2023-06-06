@@ -22,7 +22,7 @@ class periph_type(object):
     CU = 2
     FAN = 3
     PSU = 4
-    UNKNOWN = 5
+    NONE = 5
 
     _VALUES_TO_NAMES = {
         0: "CHASSIS",
@@ -30,7 +30,7 @@ class periph_type(object):
         2: "CU",
         3: "FAN",
         4: "PSU",
-        5: "UNKNOWN",
+        5: "NONE",
     }
 
     _NAMES_TO_VALUES = {
@@ -39,6 +39,33 @@ class periph_type(object):
         "CU": 2,
         "FAN": 3,
         "PSU": 4,
+        "NONE": 5,
+    }
+
+
+class slot_status(object):
+    EMPTY = 0
+    INIT = 1
+    READY = 2
+    MISMATCH = 3
+    COMFAIL = 4
+    UNKNOWN = 5
+
+    _VALUES_TO_NAMES = {
+        0: "EMPTY",
+        1: "INIT",
+        2: "READY",
+        3: "MISMATCH",
+        4: "COMFAIL",
+        5: "UNKNOWN",
+    }
+
+    _NAMES_TO_VALUES = {
+        "EMPTY": 0,
+        "INIT": 1,
+        "READY": 2,
+        "MISMATCH": 3,
+        "COMFAIL": 4,
         "UNKNOWN": 5,
     }
 
@@ -84,14 +111,16 @@ class led_color(object):
     GREEN = 1
     YELLOW = 2
     ORANGE = 3
-    NONE = 4
+    OFF = 4
+    UNKNOWN = 5
 
     _VALUES_TO_NAMES = {
         0: "RED",
         1: "GREEN",
         2: "YELLOW",
         3: "ORANGE",
-        4: "NONE",
+        4: "OFF",
+        5: "UNKNOWN",
     }
 
     _NAMES_TO_VALUES = {
@@ -99,7 +128,8 @@ class led_color(object):
         "GREEN": 1,
         "YELLOW": 2,
         "ORANGE": 3,
-        "NONE": 4,
+        "OFF": 4,
+        "UNKNOWN": 5,
     }
 
 

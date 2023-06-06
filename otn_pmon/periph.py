@@ -1,23 +1,8 @@
-##
-#   Copyright (c) 2021 Alibaba Group and Accelink Technologies
-#
-#   Licensed under the Apache License, Version 2.0 (the "License"); you may
-#   not use this file except in compliance with the License. You may obtain
-#   a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
-#   THIS CODE IS PROVIDED ON AN *AS IS* BASIS, WITHOUT WARRANTIES OR
-#   CONDITIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED, INCLUDING WITHOUT
-#   LIMITATION ANY IMPLIED WARRANTIES OR CONDITIONS OF TITLE, FITNESS
-#   FOR A PARTICULAR PURPOSE, MERCHANTABILITY OR NON-INFRINGEMENT.
-#
-#   See the Apache Version 2.0 License for specific language governing
-#   permissions and limitations under the License.
-##
-
 from sonic_py_common import logger
-from otn_pmon.device.ttypes import periph_type
+from otn_pmon.device.ttypes import periph_type, slot_status
 from otn_pmon.thrift_client import thrift_try
 from swsscommon import swsscommon
-from otn_pmon.base import Pm, Alarm, slot_status
+from otn_pmon.base import Pm, Alarm
 import otn_pmon.db as db
 import otn_pmon.utils as utils
 
@@ -80,12 +65,20 @@ class Periph(object):
         state_db = self.dbs[swsscommon.STATE_DB]
         if self.removable() :
             while True :
+                dss = self.get_db_slot_status()
+                # alarm occurs during the periph`s initializing.
+                if slot_status._NAMES_TO_VALUES[dss.upper()] != slot_status.INIT :
+                    print(f"db-slot-status {dss}")
+                    # initializing failed with alarm
+                    break
+
                 # the slot-status is still INIT until the initialization completed.
                 rss = self.get_slot_status()
                 if rss != slot_status.INIT :
                     print(f"real-slot-status {slot_status._VALUES_TO_NAMES[rss]}")
                     oper_status = utils.slot_status_to_oper_status(rss)
                     state_db.set_field(self.table_name, self.name, "oper-status", oper_status)
+                    state_db.set_field(self.table_name, self.name, "slot-status", slot_status._VALUES_TO_NAMES[rss])
                     # initializing completed with slot-status changed
                     break
         else :
@@ -127,11 +120,16 @@ class Periph(object):
         return thrift_try(inner) / 100
 
     def get_slot_status(self):
+        def inner(client):
+            return client.get_periph_slot_status(self.type, self.id)
+        return thrift_try(inner)
+
+    def get_db_slot_status(self) :
         state_db = self.dbs[swsscommon.STATE_DB]
         ok, status = state_db.get_field(self.table_name, self.name, "slot-status")
-        if ok and status in slot_status._NAMES_TO_VALUES :
-            return slot_status._NAMES_TO_VALUES[status.upper()]
-
+        if ok and status :
+            return status
+ 
         return None
 
     def get_periph_eeprom(self):

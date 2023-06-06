@@ -1,19 +1,4 @@
 import time
-##
-#   Copyright (c) 2021 Alibaba Group and Accelink Technologies
-#
-#   Licensed under the Apache License, Version 2.0 (the "License"); you may
-#   not use this file except in compliance with the License. You may obtain
-#   a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
-#   THIS CODE IS PROVIDED ON AN *AS IS* BASIS, WITHOUT WARRANTIES OR
-#   CONDITIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED, INCLUDING WITHOUT
-#   LIMITATION ANY IMPLIED WARRANTIES OR CONDITIONS OF TITLE, FITNESS
-#   FOR A PARTICULAR PURPOSE, MERCHANTABILITY OR NON-INFRINGEMENT.
-#
-#   See the Apache Version 2.0 License for specific language governing
-#   permissions and limitations under the License.
-##
-
 import importlib
 from thrift.transport import TSocket
 from thrift.transport import TTransport
@@ -25,12 +10,13 @@ THRIFT_SERVER_PORT = 9092
 
 class ThriftClient(object):
     def open(self):
-        socket = TSocket.TSocket(THRIFT_SERVER, THRIFT_SERVER_PORT)
-        self.transport = TTransport.TBufferedTransport(socket)
+        self.transport = TSocket.TSocket(THRIFT_SERVER, THRIFT_SERVER_PORT)
+
+        self.transport = TTransport.TBufferedTransport(self.transport)
         bprotocol = TBinaryProtocol.TBinaryProtocol(self.transport)
 
-        periph_rpc = importlib.import_module("otn_pmon.device.periph_rpc")
-        self.pltfm_mgr = periph_rpc.Client(bprotocol)
+        pltfm_mgr_client_module = importlib.import_module("otn_pmon.device.periph_rpc")
+        self.pltfm_mgr = pltfm_mgr_client_module.Client(bprotocol)
 
         self.transport.open()
         return self

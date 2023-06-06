@@ -1,23 +1,8 @@
-##
-#   Copyright (c) 2021 Alibaba Group and Accelink Technologies
-#
-#   Licensed under the Apache License, Version 2.0 (the "License"); you may
-#   not use this file except in compliance with the License. You may obtain
-#   a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
-#   THIS CODE IS PROVIDED ON AN *AS IS* BASIS, WITHOUT WARRANTIES OR
-#   CONDITIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED, INCLUDING WITHOUT
-#   LIMITATION ANY IMPLIED WARRANTIES OR CONDITIONS OF TITLE, FITNESS
-#   FOR A PARTICULAR PURPOSE, MERCHANTABILITY OR NON-INFRINGEMENT.
-#
-#   See the Apache Version 2.0 License for specific language governing
-#   permissions and limitations under the License.
-##
-
-from otn_pmon.base import Alarm, slot_status
+import otn_pmon.base as base
 import otn_pmon.periph as periph
 import otn_pmon.utils as utils
 from functools import lru_cache
-from otn_pmon.device.ttypes import led_color, periph_type
+from otn_pmon.device.ttypes import led_color, slot_status, periph_type
 from otn_pmon.thrift_client import thrift_try
 from swsscommon import swsscommon
 
@@ -30,7 +15,7 @@ class Fan(periph.Periph) :
         super().__init__(periph_type.FAN, id)
 
     def initialize_state(self):
-        Alarm.clearAll(self.name)
+        base.Alarm.clearAll(self.name)
         eeprom = self.get_periph_eeprom()
         data = [
             ('part-no', eeprom.pn),
@@ -63,9 +48,9 @@ class Fan(periph.Periph) :
         pass
 
     def update_alarm(self):
-        speed_high = Alarm(self.name, "FAN_HIGH")
-        speed_low = Alarm(self.name, "FAN_LOW")
-        fan_fail = Alarm(self.name, "FAN_FAIL")
+        speed_high = base.Alarm(self.name, "FAN_HIGH")
+        speed_low = base.Alarm(self.name, "FAN_LOW")
+        fan_fail = base.Alarm(self.name, "FAN_FAIL")
 
         speed = self.__get_speed()
         max_speed = speed.front if speed.front >= speed.behind else speed.behind
@@ -78,4 +63,4 @@ class Fan(periph.Periph) :
         elif min_speed < Fan.SPEED_MIN :
             speed_low.createAndClear("FAN")
         else :
-            Alarm.clearAll(self.name)
+            base.Alarm.clearAll(self.name)

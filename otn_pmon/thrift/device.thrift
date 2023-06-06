@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021 Alibaba Group and Accelink Technologies
+ * Copyright (c) 2021 Alibaba Group.
  *
  *    Licensed under the Apache License, Version 2.0 (the "License"); you may
  *    not use this file except in compliance with the License. You may obtain
@@ -12,10 +12,14 @@
  *
  *    See the Apache Version 2.0 License for specific language governing
  *    permissions and limitations under the License.
- **/
+ *
+ * @file    device.thrift
+ *
+ * @brief   This file defines PMON thrift interfaces
+ */
 
-
-typedef i8 ret_code  // OK:0, ERROR:1~
+// OK:0, ERROR:1~
+typedef i8 ret_code
 
 enum periph_type {
     CHASSIS,
@@ -23,6 +27,15 @@ enum periph_type {
     CU,
     FAN,
     PSU,
+    NONE
+}
+
+enum slot_status {
+    EMPTY,
+    INIT,
+    READY,
+    MISMATCH,
+    COMFAIL,
     UNKNOWN
 }
 
@@ -43,7 +56,8 @@ enum led_color {
     GREEN,
     YELLOW,
     ORANGE,
-    NONE
+    OFF,
+    UNKNOWN
 }
 
 enum led_flash_type {
@@ -129,14 +143,15 @@ struct power_monitor {
 }
 
 service periph_rpc {
-    // common APIs
-    system_version get_system_version();
-
     bool periph_presence(1: periph_type type, 2: i8 id);
+
+    system_version get_system_version();
 
     string get_periph_version(1: periph_type type, 2: i8 id);
 
     i32 get_periph_temperature(1: periph_type type, 2: i8 id);
+
+    slot_status get_periph_slot_status(1: periph_type type, 2: i8 id);
 
     periph_eeprom get_periph_eeprom(1: periph_type type, 2: i8 id);
 
@@ -168,7 +183,6 @@ service periph_rpc {
 
     string get_fpga_version(1: fpga_type ftype)
 
-    // debug APIs
     i32 get_slot_power_monitor_points_number(1: i8 id);
 
     i32 get_slot_power_monitor_point_log(1: i8 id, 2: i32 total, 3: i32 index);
@@ -177,5 +191,3 @@ service periph_rpc {
 
     power_monitor get_slot_power_monitor(1: i8 id);
 }
-
-

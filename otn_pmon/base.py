@@ -1,48 +1,7 @@
-##
-#   Copyright (c) 2021 Alibaba Group and Accelink Technologies
-#
-#   Licensed under the Apache License, Version 2.0 (the "License"); you may
-#   not use this file except in compliance with the License. You may obtain
-#   a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
-#   THIS CODE IS PROVIDED ON AN *AS IS* BASIS, WITHOUT WARRANTIES OR
-#   CONDITIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED, INCLUDING WITHOUT
-#   LIMITATION ANY IMPLIED WARRANTIES OR CONDITIONS OF TITLE, FITNESS
-#   FOR A PARTICULAR PURPOSE, MERCHANTABILITY OR NON-INFRINGEMENT.
-#
-#   See the Apache Version 2.0 License for specific language governing
-#   permissions and limitations under the License.
-##
-
 import time
 from functools import lru_cache
 from swsscommon import swsscommon
 import otn_pmon.db as db
-
-class slot_status(object):
-    EMPTY = 0
-    INIT = 1
-    READY = 2
-    MISMATCH = 3
-    COMFAIL = 4
-    UNKNOWN = 5
-
-    _VALUES_TO_NAMES = {
-        0: "EMPTY",
-        1: "INIT",
-        2: "READY",
-        3: "MISMATCH",
-        4: "COMFAIL",
-        5: "UNKNOWN",
-    }
-
-    _NAMES_TO_VALUES = {
-        "EMPTY": 0,
-        "INIT": 1,
-        "READY": 2,
-        "MISMATCH": 3,
-        "COMFAIL": 4,
-        "UNKNOWN": 5,
-    }
 
 @lru_cache()
 class Pm :
@@ -78,7 +37,7 @@ class Pm :
 
     def __get_latest_sampling_timestamp(self, time) :
         delta = self.__get_interval()
-        # timezone ???
+        # pmon中不需要考虑时区么？
         return int(time / delta) * delta
 
     def __need_reset(self, time) :
