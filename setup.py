@@ -1,4 +1,11 @@
+import os
 from setuptools import setup
+
+def get_packages() :
+    os.system("thrift --gen py --out ./otn_pmon/thrift_api ./otn_pmon/thrift_api/device.thrift")
+    os.system("mv ./otn_pmon/thrift_api/device/* ./otn_pmon/thrift_api")
+    os.system("rm -rf ./otn_pmon/thrift_api/device")
+    return ['otn_pmon', 'otn_pmon.thrift_api']
 
 setup(
     name='sonic-platform-common',
@@ -9,10 +16,7 @@ setup(
     author_email='sonic-wg-otn@lists.sonicfoundation.dev',
     url='https://github.com/zhengweitang-zwt/sonic-otn-platform-common',
     maintainer='leixin',
-    packages=[
-        'otn_pmon',
-        'otn_pmon.device',
-    ],
+    packages=get_packages(),
     # NOTE: Install also depends on sonic-config-engine for portconfig.py
     # This dependency should be eliminated by moving portconfig.py
     # functionality into sonic-py-common
