@@ -1,35 +1,61 @@
+##
+#   Copyright (c) 2021 Alibaba Group and Accelink Technologies
+#
+#   Licensed under the Apache License, Version 2.0 (the "License"); you may
+#   not use this file except in compliance with the License. You may obtain
+#   a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
+#   THIS CODE IS PROVIDED ON AN *AS IS* BASIS, WITHOUT WARRANTIES OR
+#   CONDITIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED, INCLUDING WITHOUT
+#   LIMITATION ANY IMPLIED WARRANTIES OR CONDITIONS OF TITLE, FITNESS
+#   FOR A PARTICULAR PURPOSE, MERCHANTABILITY OR NON-INFRINGEMENT.
+#
+#   See the Apache Version 2.0 License for specific language governing
+#   permissions and limitations under the License.
+##
+
 from functools import lru_cache
-from swsscommon import swsscommon
-import otn_pmon.utils as utils
+from otn_pmon.common import *
 import otn_pmon.periph as periph
-from otn_pmon.base import Alarm
-from otn_pmon.device.ttypes import led_color, led_type, periph_type, slot_status
+import otn_pmon.db as db
+from otn_pmon.thrift_api.ttypes import led_color, power_ctl_type, periph_type
 from otn_pmon.thrift_client import thrift_try
 
 @lru_cache()
 class Linecard(periph.Periph):
     def __init__(self, id):
         super().__init__(periph_type.LINECARD, id)
+        self.boot_timeout_secs = 8 * 60
 
     def initialize_state(self):
-        Alarm.clearAll(self.name)
-        eeprom = self.get_periph_eeprom()
+        s_status = self.get_slot_status()
+        if not s_status or s_status != slot_status.READY :
+            s_status = slot_status.INIT
+
         data = [
-            ("part-no", eeprom.pn),
-            ("serial-no", eeprom.sn),
-            ("mfg-date", eeprom.mfg_date),
-            ("hardware-version", eeprom.hw_ver),
             ("parent", "CHASSIS-1"),
             ("empty", "false"),
             ("removable", "true"),
             ("power-admin-state", "POWER_ENABLED"),
             ("mfg-name", "alibaba"),
-            ("oper-status", utils.slot_status_to_oper_status(slot_status.INIT)),
-            ("slot-status", slot_status._VALUES_TO_NAMES[slot_status.INIT]),
-            ("subcomponents", self.__get_subcomponents(eeprom.type)),
+            ("oper-status", periph.slot_status_to_oper_status(s_status)),
+            ("slot-status", get_slot_status_name(s_status)),
         ]
 
-        self.dbs[swsscommon.STATE_DB].set(self.table_name, self.name, data)
+        # initialize inventory info if linecard`s eeprom can be read by thrift
+        inv = self.get_inventory()
+        if inv :
+            extend = [
+                ("linecard-type", inv.type),
+                ("part-no", inv.pn),
+                ("serial-no", inv.sn),
+                ("mfg-date", inv.mfg_date),
+                ("hardware-version", inv.hw_ver),
+            ]
+            data.extend(extend)
+            # the host controls the power on|off if the real card type can be read from eeprom
+            self.set_power_control(power_ctl_type.ON)
+
+        self.dbs[db.STATE_DB].set(self.table_name, self.name, data)
 
     def __get_subcomponents(self, card_type):
         if card_type == "E100C" :
@@ -43,24 +69,40 @@ class Linecard(periph.Periph):
         else :
             return ""
 
-    def __type_mismatch(self) :
-        config_db = self.dbs[swsscommon.CONFIG_DB]
-        _, type_c = config_db.get_field(self.table_name, self.name, "linecard-type")
-        if type_c == "NONE" :
+    def set_power_control(self, type) :
+        def inner(client):
+            return client.set_power_control(self.id, type)
+        LOG.log_info(f"set {self.name} power control {type}")
+        return thrift_try(inner)
+
+    def get_temperature(self):
+        counters_db = self.dbs[db.COUNTERS_DB]
+        key = f"{self.name}_Temperature:15_pm_current"
+        ok, instant = counters_db.get_field(self.table_name, key, "instant")
+        if not ok or not instant :
+            return INVALID_TEMPERATURE
+        return float(instant)
+
+    def mismatch(self) :
+        config_db = self.dbs[db.CONFIG_DB]
+        ok, type_c = config_db.get_field(self.table_name, self.name, "linecard-type")
+        if not ok or type_c == "NONE" :
             return False
 
-        eeprom = self.get_periph_eeprom()
-        type_r = eeprom.type
-        if type_c != type_r :
-            return True
- 
-        return False
+        inv = self.get_inventory()
+        if inv :
+            # the real card type should be read from driver
+            if inv.type.upper() != type_c.upper() :
+                return True
+        else :
+            # the real card type should be read from db
+            state_db = self.dbs[db.STATE_DB]
+            ok, type_s = state_db.get_field(self.table_name, self.name, "linecard-type")
+            if not ok or not type_s :
+                return False
 
-    def __type_unknown(self) :
-        eeprom = self.get_periph_eeprom()
-        type_r = eeprom.type
-        if type_r not in ["P230C", "E100C", "E110C", "E120C"] :
-            return True
+            if type_c.upper() != type_s.upper() :
+                return True
  
         return False
 
@@ -69,18 +111,4 @@ class Linecard(periph.Periph):
         super().update_pm("Temperature", temp)
 
     def update_alarm(self) :
-        s_rel_status = None
-        state_db = self.dbs[swsscommon.STATE_DB]
-        if self.__type_unknown() :
-            alarm = Alarm(self.name, "CRD_UNKNOWN")
-            alarm.createAndClear("CRD")
-            s_rel_status = slot_status.UNKNOWN
-        elif self.__type_mismatch() :
-            alarm = Alarm(self.name, "CRD_MISMATCH")
-            alarm.createAndClear("CRD")
-            s_rel_status = slot_status.MISMATCH
-
-        if s_rel_status :
-            s_db_status = slot_status._VALUES_TO_NAMES[s_rel_status]
-            state_db.set_field(self.table_name, self.name, "oper-status", utils.slot_status_to_oper_status(s_rel_status))
-            state_db.set_field(self.table_name, self.name, "slot-status", s_db_status)
+        super().update_alarm()
