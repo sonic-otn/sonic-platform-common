@@ -52,6 +52,8 @@ class Periph(object):
         self.table_name = periph_type._VALUES_TO_NAMES[type]
         self.dbs = db.get_dbs(self.name, [db.CONFIG_DB, db.STATE_DB, db.COUNTERS_DB])
         self.state_initialized = False
+        self.inventory = None
+        self.slot_init_flag = slot_status.EMPTY
 
     def __get_name(self) :
         type_string = periph_type._VALUES_TO_NAMES[self.type]
@@ -76,15 +78,19 @@ class Periph(object):
 
     def synchronize_presence(self) :
         card_mismatch = Alarm(self.name, "CRD_MISMATCH")
-        if self.mismatch() :
-            card_mismatch.createAndClearOthers()
-            self.state_initialized = False
-            self.synchronize_mismatch()
-            return
-        else :
-            card_mismatch.clear()
 
         if not self.state_initialized :
+            # when plug in update the mismatch stauts,avoiding to get get_inventory frequently
+            if self.mismatch():
+                card_mismatch.createAndClearOthers()
+                self.state_initialized = False
+                self.synchronize_mismatch()
+                self.update_slot_status(slot_status.MISMATCH)
+                return
+            else :
+                card_mismatch.clear()
+
+            # print(f"synchronize_presence in {self.name}")
             self.initialize_state()
             self.state_initialized = True
             # start a timer to check whether booting successed or failed
@@ -122,21 +128,25 @@ class Periph(object):
         ]
         self.dbs[db.STATE_DB].set(self.table_name, self.name, data)
 
-    def update_state(self) :
+    def update_state(self):
         # check unknown and mismatch
-        if self.unknown() :
+        if self.unknown():
             self.update_slot_status(slot_status.UNKNOWN)
             return
-        if self.mismatch() :
+
+        if self.slot_init_flag == slot_status.MISMATCH:
             self.update_slot_status(slot_status.MISMATCH)
             return
 
+        if self.slot_init_flag == slot_status.INIT:
+            return
+
         # only the slot-status of the linecard is updated by southbound api
-        if self.type == periph_type.LINECARD :
+        if self.type == periph_type.LINECARD:
             # do nothing if the linecard is still initializing.
-            if self.get_slot_status() == slot_status.INIT :
+            if self.get_slot_status() == slot_status.INIT or self.get_slot_status() == slot_status.MISMATCH:
                 return
-        else :
+        else:
             self.update_slot_status(slot_status.READY)
 
     def update_pm(self, pm_name, value):
@@ -165,7 +175,9 @@ class Periph(object):
                 self.update_slot_status(slot_status.BOOTFAIL)
                 boot_fail = Alarm(self.name, 'CRD_BOOT_FAIL')
                 boot_fail.createAndClearOthers()
-            LOG.log_info(f"{self.name} boot finished with {get_slot_status_name(s_status)}")
+
+            elif s_status is not None:
+                LOG.log_info(f"{self.name} boot finished with {get_slot_status_name(s_status)}")
 
         boot_timer = Timer(timeout, handler, (self, ))
         boot_timer.start()
@@ -218,6 +230,7 @@ class Periph(object):
     def get_slot_status(self):
         state_db = self.dbs[db.STATE_DB]
         ok, status = state_db.get_field(self.table_name, self.name, "slot-status")
+        # print(f"get_slot_status ,table_name={self.table_name},name={self.name}")
         if ok and  status in slot_status._NAMES_TO_VALUES :
             return get_slot_status_value(status)
 
