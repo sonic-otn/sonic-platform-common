@@ -14,6 +14,8 @@
 ##
 
 from swsscommon import swsscommon
+from sonic_py_common.device_info import get_path_to_platform_dir
+import json
 
 EXPIRE_7_DAYS = 7 * 24 * 60 * 60 #unit s
 EXPIRE_1_DAYS = 1 * 24 * 60 * 60 #unit s
@@ -23,13 +25,29 @@ STATE_DB    = swsscommon.STATE_DB
 COUNTERS_DB = swsscommon.COUNTERS_DB
 HISTORY_DB  = swsscommon.HISTORY_DB
 
-def get_dbs(periph_name, db_types) :
+
+def db_get_dev_spec():
+    platform_path = get_path_to_platform_dir()
+    # platform_path = "/usr/share/sonic/platform"
+    spec_path = f"{platform_path}/dev_spec.json"
+    with open(spec_path, 'r', encoding='utf8') as fp:
+        return json.load(fp)
+
+
+def db_get_periph_number(type_name):
+    spec = db_get_dev_spec()
+    if type_name:
+        return spec["number"][type_name]
+    return 0
+
+
+def get_dbs(periph_name, db_types):
     if not isinstance(db_types, list) or len(db_types) == 0 :
         return None
     slot_id = HOST_DB
     multi_db = False
     elmts = periph_name.split("-")
-    if len(elmts) > 2 and int(elmts[2]) <= 4 :
+    if len(elmts) > 2 and int(elmts[2]) <= db_get_periph_number("LINECARD"):
         slot_id = int(elmts[2])
         multi_db = True
     dbs = {}
@@ -37,7 +55,8 @@ def get_dbs(periph_name, db_types) :
         dbs[t] = Client(slot_id, t, multi_db)
     return dbs
 
-class Table() :
+
+class Table():
     CHASSIS = "CHASSIS"
     FAN = "FAN"
     LINECARD = "LINECARD"
@@ -45,6 +64,7 @@ class Table() :
     CU = "CU"
     CURRENT_ALARM = "CURALARM"
     HISTORY_ALARM = "HISALARM"
+
 
 class Client():
     def __init__(self, slot_id, db_index, multi_db = False) :
